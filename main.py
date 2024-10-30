@@ -1,14 +1,13 @@
 import os
 import shutil
 import psutil
-import networkscan
 import csv
 import time
 import threading
 import subprocess
 import customtkinter as ctk
 from tkinter import scrolledtext
-
+import platform
 
 # Notification function (adds text to Home log)
 def notify(message):
@@ -66,71 +65,7 @@ def organize_files(directory, categories, delete_empty_folders, dry_run, organiz
     return moved_files
 
 
-# Ping Network Function (Now captures and shows full ping output)
-def ping_network(ip_address):
-    try:
-        result = subprocess.run(['ping', ip_address, '-n', '1'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        if result.returncode == 0:
-            notify(result.stdout)  # Display successful ping output
-        else:
-            notify(result.stdout + result.stderr)  # Display failed ping output
-    except Exception as e:
-        notify(f"Ping Error: {str(e)}")
-
-
-# Traceroute Function to track route to a network device
-def traceroute(ip_address):
-    result = subprocess.run(['tracert', ip_address], stdout=subprocess.PIPE)
-    notify(result.stdout.decode('utf-8'))
-
-
-# SNMP Device Discovery Using Net-SNMP
-def snmp_device_discovery(ip_address, community='public'):
-    try:
-        command = ['snmpwalk', '-v2c', '-c', community, ip_address, '1.3.6.1.2.1.1.1.0']  # OID for sysDescr
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-        if result.stderr:
-            notify(f"SNMP Error: {result.stderr}")
-        else:
-            notify(f"SNMP Response: {result.stdout}")
-    
-    except Exception as e:
-        notify(f"An error occurred: {str(e)}")
-
-
-# Scanning the network using CIDR notation with detailed host info and CSV export
-def scan_network(ip_scan):
-    try:
-        my_scan = networkscan.Networkscan(ip_scan)
-        my_scan.run()
-
-        hosts_info = []
-        if my_scan.list_of_hosts_found:
-            for host in my_scan.list_of_hosts_found:
-                host_info = {
-                    'IP': host['ip'],
-                    'MAC': host['mac'] if 'mac' in host else 'Unknown',
-                    'Vendor': host['vendor'] if 'vendor' in host else 'Unknown'
-                }
-                hosts_info.append(host_info)
-                notify(f"Host found: {host_info['IP']}, MAC: {host_info['MAC']}, Vendor: {host_info['Vendor']}")
-        else:
-            notify("No hosts found on the network.")
-
-        # Save results to CSV
-        with open('network_scan_results.csv', 'w', newline='') as csvfile:
-            fieldnames = ['IP', 'MAC', 'Vendor']
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(hosts_info)
-
-        notify("Network scan completed.")
-    except Exception as e:
-        notify(f"An error occurred while scanning: {str(e)}")
-
-
-# Real-time System Info Function
+# System Info Function
 def get_system_info():
     while True:
         cpu_usage = psutil.cpu_percent()
@@ -154,6 +89,26 @@ def run_system_monitoring():
     threading.Thread(target=get_system_info, daemon=True).start()
 
 
+# Ping Network Function (Now handles both Linux and Windows)
+def ping_network(ip):
+    try:
+        param = "-n" if platform.system().lower() == "windows" else "-c"
+        output = subprocess.check_output(["ping", param, "4", ip], universal_newlines=True)
+        notify(f"Ping result for {ip}:\n{output}")
+    except subprocess.CalledProcessError as e:
+        notify(f"Failed to ping {ip}:\n{e.output}")
+
+
+# Traceroute Function to track route to a network device
+def traceroute(ip):
+    command = "tracert" if platform.system().lower() == "windows" else "traceroute"
+    try:
+        result = subprocess.check_output([command, ip], universal_newlines=True)
+        notify(f"Traceroute result for {ip}:\n{result}")
+    except subprocess.CalledProcessError as e:
+        notify(f"Failed to traceroute {ip}:\n{e.output}")
+
+
 # Initialize CustomTkinter
 ctk.set_appearance_mode("dark")  # Enable dark mode
 ctk.set_default_color_theme("blue")
@@ -171,6 +126,36 @@ home_tab = tab_view.add("Home")
 log_textbox = scrolledtext.ScrolledText(home_tab, width=90, height=25, bg="black", fg="white")
 log_textbox.pack(pady=20)
 
+# System Tab for System Info
+system_tab = tab_view.add("System Info")
+
+system_frame = ctk.CTkFrame(system_tab)
+system_frame.pack(pady=20)
+
+system_info_box = scrolledtext.ScrolledText(system_frame, width=80, height=20, bg="black", fg="white")
+system_info_box.pack()
+
+def display_system_info():
+    while True:
+        cpu = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        net = psutil.net_io_counters()
+
+        info = (
+            f"CPU Usage: {cpu}%\n"
+            f"Memory: {memory.percent}% used\n"
+            f"Disk: {disk.percent}% used\n"
+            f"Net Sent: {net.bytes_sent / 1024 / 1024:.2f} MB\n"
+            f"Net Received: {net.bytes_recv / 1024 / 1024:.2f} MB\n"
+        )
+
+        system_info_box.insert(ctk.END, info + "\n")
+        system_info_box.see(ctk.END)
+        time.sleep(2)
+
+threading.Thread(target=display_system_info, daemon=True).start()
+
 # Network Tab
 network_tab = tab_view.add("Network")
 
@@ -186,17 +171,6 @@ ctk.CTkLabel(network_frame, text="Traceroute IP:").grid(row=1, column=0, padx=10
 traceroute_input = ctk.CTkEntry(network_frame)
 traceroute_input.grid(row=1, column=1, padx=10, pady=10)
 ctk.CTkButton(network_frame, text="Traceroute", command=lambda: traceroute(traceroute_input.get())).grid(row=1, column=2)
-
-ctk.CTkLabel(network_frame, text="SNMP Device IP:").grid(row=2, column=0, padx=10, pady=10)
-snmp_input = ctk.CTkEntry(network_frame)
-snmp_input.grid(row=2, column=1, padx=10, pady=10)
-ctk.CTkButton(network_frame, text="Discover SNMP", command=lambda: snmp_device_discovery(snmp_input.get())).grid(row=2, column=2)
-
-# Network Scan Section
-ctk.CTkLabel(network_frame, text="Network Scan (CIDR):").grid(row=3, column=0, padx=10, pady=10)
-scan_input = ctk.CTkEntry(network_frame)
-scan_input.grid(row=3, column=1, padx=10, pady=10)
-ctk.CTkButton(network_frame, text="Scan Network", command=lambda: scan_network(scan_input.get())).grid(row=3, column=2)
 
 # Organizer Tab
 organizer_tab = tab_view.add("Organizer")
