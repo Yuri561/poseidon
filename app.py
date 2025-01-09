@@ -21,7 +21,7 @@ class MainApp(QMainWindow):
         self.alert_manager = None
         self.stacked_widget = None
         self.setWindowTitle("Prosyden")
-        self.setFixedSize(1800, 985)
+        self.setMinimumSize(1900, 990)
         self.setLayout(QGridLayout())
         self.layout().setContentsMargins(20, 20, 20, 20)  # Add larger margins
         self.layout().setSpacing(30)
@@ -242,7 +242,7 @@ class Dashboard(QWidget):
 
         # Network Traffic Table
         table = QTableWidget(5, 3)
-        table.setHorizontalHeaderLabels(["IP Address", "Status", "Latency (ms)"])
+        table.setHorizontalHeaderLabels(["IP", "Stat", "Lat (ms)"])
         data = [
             ("192.168.1.1", "Online", "10ms"),
             ("192.168.1.2", "Online", "15ms"),
