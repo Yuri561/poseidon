@@ -3,7 +3,7 @@ from PIL import Image, ImageTk
 import io
 
 API_KEY = "897cb7af93dc77cc8639d0935e34a4d6"  # Replace with your API key
-CITY = "Raleigh"
+CITY = "Fayetteville"
 
 
 def fetch_detailed_weather():
