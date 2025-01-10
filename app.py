@@ -1,18 +1,18 @@
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QLabel, QWidget, QProgressBar,
-    QPushButton, QFrame, QGridLayout, QSlider, QLineEdit, QTextEdit, QTableWidget, QTableWidgetItem, QStackedWidget,
+    QPushButton, QFrame, QGridLayout, QSlider, QTextEdit, QTableWidget, QTableWidgetItem, QStackedWidget,
     QScrollBar, QScrollArea
 )
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-import matplotlib.pyplot as plt
-import datetime
 from pages.settings_page import SettingsPage
 from pages.reports_page import ReportsPage
 from pages.logs_page import LogsPage
 from pages.user_management_page import UserManagementPage
+from db.alerts import network_alerts_db
+from db.alerts import hvac_alerts_db
+
 
 class MainApp(QMainWindow):
     def __init__(self):
@@ -56,6 +56,9 @@ class MainApp(QMainWindow):
         # Content Section
         self.create_content_section()
 
+    #Global Variables
+    #toolTip
+
     def create_top_section(self):
         """Create the top section of the dashboard."""
         top_frame = QFrame()
@@ -79,7 +82,8 @@ class MainApp(QMainWindow):
 
         self.main_layout.addWidget(top_frame)
 
-    def add_label(self, layout, text, color):
+    @staticmethod
+    def add_label(layout, text, color):
         """Add a styled label to the layout."""
         label = QLabel(text)
         label.setFont(QFont("Arial", 14))
@@ -147,6 +151,7 @@ class MainApp(QMainWindow):
                 }
                 QPushButton:hover {
                     background-color: #444444;  /* Slightly lighter hover effect */
+                    padding: 10px;
                 }
                 QPushButton:pressed {
                     background-color: #555555;  /* Darker when pressed */
@@ -425,12 +430,7 @@ class AlertManagerDashboard(QWidget):
         frame.layout().addWidget(label)
 
         # HVAC sensors example
-        sensor_data = [
-            ("Zone 1", "Normal", "22°C"),
-            ("Zone 2", "Warning", "27°C"),
-            ("Zone 3", "Critical", "35°C"),
-        ]
-        table = QTableWidget(len(sensor_data), 3)
+        table = QTableWidget(len(hvac_alerts_db), 3)
         table.setHorizontalHeaderLabels(["Zone", "Status", "Temperature"])
         table.horizontalHeader().setFixedHeight(60)
         table.horizontalHeader().setVisible(True)
@@ -440,7 +440,11 @@ class AlertManagerDashboard(QWidget):
                     QHeaderView::section { background-color: #444444; color: #FFFFFF; padding: 4px; }
                 """)
         table.setFixedHeight(200)
-        for row, (zone, status, temp) in enumerate(sensor_data):
+        for row, data in enumerate(hvac_alerts_db):
+            zone = data['zone_id']
+            status = data['severity']
+            temp = data['temp']
+
             table.setItem(row, 0, QTableWidgetItem(zone))
             status_item = QTableWidgetItem(status)
             if status == "Critical":
@@ -466,10 +470,16 @@ class AlertManagerDashboard(QWidget):
         # Alert actions with sliders and toggles
         reset_button = QPushButton("Reset Alarms")
         reset_button.setFont(QFont("Arial", 14))
+        reset_button.setCursor(Qt.PointingHandCursor)
+        reset_button.setToolTip('Reset')
         reset_button.setStyleSheet("background-color: #e53935; color: #FFFFFF; border-radius: 5px; padding: 10px;")
+
         acknowledge_button = QPushButton("Acknowledge Alerts")
         acknowledge_button.setFont(QFont("Arial", 14))
-        acknowledge_button.setStyleSheet("background-color: #8e24aa; color: #FFFFFF; border-radius: 5px; padding: 10px;")
+        acknowledge_button.setCursor(Qt.PointingHandCursor)
+        acknowledge_button.setToolTip("Acknowledge")
+        acknowledge_button.setStyleSheet("""background-color: #8e24aa; color: #FFFFFF; border-radius: 5px; padding: 10px;
+        """ )
 
         slider_label = QLabel("Alert Sensitivity:")
         slider_label.setFont(QFont("Arial", 12))
@@ -481,7 +491,7 @@ class AlertManagerDashboard(QWidget):
         sensitivity_slider.setValue(50)
         sensitivity_slider.setStyleSheet("""
             QSlider::groove:horizontal { background: #444444; }
-            QSlider::handle:horizontal { background: #00bcd4; border-radius: 5px; }
+            QSlider::handle:horizontal { background: #00bcd4; border-radius: 5px; padding: 8px; }
         """)
 
         frame.layout().addWidget(reset_button)
@@ -499,13 +509,13 @@ class AlertManagerDashboard(QWidget):
         label.setStyleSheet("color: #FFFFFF;")
         frame.layout().addWidget(label)
 
-        # Example alerts
+        # neetwork alerts
         alerts = QTextEdit()
-        alerts.setText(
-            "🔴 Alert 1: High latency detected on 192.168.1.3\n"
-            "🔴 Alert 2: Packet loss on 192.168.1.4\n"
-            "🟠 Alert 3: Network timeout for 192.168.1.5"
-        )
+        alerts.clear()
+        for item in network_alerts_db:
+            alerts.append(
+                f"🔴Alert {item['id']} | {item['description']} | Acknowledge: | {item['acknowledge']}\n"
+            )
         alerts.setReadOnly(True)
         alerts.setStyleSheet("background-color: #2c2c2c; color: #FFFFFF; border-radius: 5px; padding: 5px;")
         frame.layout().addWidget(alerts)
