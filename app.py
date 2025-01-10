@@ -17,6 +17,7 @@ from pages.user_management_page import UserManagementPage
 class MainApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.pages = None
         self.dashboard = None
         self.alert_manager = None
         self.stacked_widget = None
@@ -235,7 +236,7 @@ class Dashboard(QWidget):
     def create_network_table(self):
         """Network Traffic Overview"""
         frame = self.create_frame("#8e44ad")
-        label = QLabel("Network Traffic Overview")
+        label = QLabel("Net Traffic Overview")
         label.setFont(QFont("Arial", 16, QFont.Bold))
         label.setStyleSheet("color: #FFFFFF;")
         frame.layout().addWidget(label)
@@ -243,6 +244,13 @@ class Dashboard(QWidget):
         # Network Traffic Table
         table = QTableWidget(5, 3)
         table.setHorizontalHeaderLabels(["IP", "Stat", "Lat (ms)"])
+        table.horizontalHeader().setVisible(True)
+        table.horizontalHeader().setFixedHeight(65)
+        table.verticalHeader().setVisible(False)
+        table.setStyleSheet("""
+                   QTableWidget {color: #FFFFFF; }
+                   QHeaderView::section { background-color: #444444; color: #FFFFFF; padding: 4px; }
+               """)
         data = [
             ("192.168.1.1", "Online", "10ms"),
             ("192.168.1.2", "Online", "15ms"),
@@ -326,21 +334,6 @@ class Dashboard(QWidget):
         # Add scroll area to the main layout
         self.layout().addWidget(scroll_area, 2, 0, 1, 2)
 
-    # def create_logs_section(self):
-    #     """System Logs Section"""
-    #     frame = self.create_frame("#d35400")
-    #     label = QLabel("System Logs")
-    #     label.setFont(QFont("Arial", 16, QFont.Bold))
-    #     label.setStyleSheet("color: #FFFFFF;")
-    #     frame.layout().addWidget(label)
-    #
-    #     logs = QTextEdit()
-    #     logs.setText("Log 1: System started\nLog 2: Network connected\nLog 3: User logged in")
-    #     logs.setReadOnly(True)
-    #     logs.setStyleSheet("background-color: #2c3e50; color: #ecf0f1; border-radius: 5px; padding: 5px;")
-    #     frame.layout().addWidget(logs)
-    #
-    #     self.layout().addWidget(frame, 3, 0, 1, 2)
 
     def create_frame(self, color):
         """Reusable Frame with Custom Background Color"""
@@ -365,14 +358,21 @@ class AlertManagerDashboard(QWidget):
         self.create_alert_summary()
 
     def create_ping_monitor(self):
-        """Ping Network Monitor Section"""
-        frame = self.create_frame("#1e88e5")
+        """Ping Network Monitor Section with Scrollable Table"""
+        # Create the main frame for the Ping Monitor
+        frame = QFrame()
+        frame.setStyleSheet("background-color: #1e88e5; border-radius: 10px;")
+        frame.setLayout(QVBoxLayout())
+        frame.layout().setContentsMargins(10, 10, 10, 10)
+        frame.layout().setSpacing(10)
+
+        # Add a label as the section title
         label = QLabel("🌐 Ping Network Monitor")
         label.setFont(QFont("Arial", 16))
         label.setStyleSheet("color: #FFFFFF;")
         frame.layout().addWidget(label)
 
-        # Simulate ping results
+        # Create the QTableWidget and populate it with data
         ping_data = [
             ("192.168.1.1", "10ms", "Good"),
             ("192.168.1.2", "15ms", "Good"),
@@ -380,8 +380,15 @@ class AlertManagerDashboard(QWidget):
             ("192.168.1.4", "20ms", "Average"),
             ("192.168.1.5", "5ms", "Good"),
         ]
+
         table = QTableWidget(len(ping_data), 3)
         table.setHorizontalHeaderLabels(["IP Address", "Ping", "Status"])
+        table.horizontalHeader().setVisible(True)  # Ensure headers are visible
+        table.verticalHeader().setVisible(False)  # Optional: Hide row headers
+        table.setStyleSheet("""
+            QTableWidget { background-color: #2c2c2c; color: #FFFFFF; }
+            QHeaderView::section { background-color: #444444; color: #FFFFFF; padding: 4px; }
+        """)
         for row, (ip, ping, status) in enumerate(ping_data):
             table.setItem(row, 0, QTableWidgetItem(ip))
             table.setItem(row, 1, QTableWidgetItem(ping))
@@ -395,7 +402,19 @@ class AlertManagerDashboard(QWidget):
             table.setItem(row, 2, status_item)
 
         frame.layout().addWidget(table)
-        self.layout().addWidget(frame, 0, 0)
+
+        # Create a scroll area and add the frame to it
+        scroll_area = QScrollArea()
+        scroll_area.setWidget(frame)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("background-color: #121212; border: none;")
+        scroll_area.setMinimumHeight(100)  # Ensure it's large enough to display content
+
+        # Add the scroll area to the main layout
+        self.layout().addWidget(scroll_area)
+
+        # scroll_area.setWidget(frame)
+        # scroll_area.setWidget(frame)
 
     def create_hvac_sensor_status(self):
         """HVAC Sensor Status Section"""
@@ -413,6 +432,14 @@ class AlertManagerDashboard(QWidget):
         ]
         table = QTableWidget(len(sensor_data), 3)
         table.setHorizontalHeaderLabels(["Zone", "Status", "Temperature"])
+        table.horizontalHeader().setFixedHeight(60)
+        table.horizontalHeader().setVisible(True)
+        table.verticalHeader().setVisible(False)  # Optional: Hide row headers
+        table.setStyleSheet("""
+                    QTableWidget { background-color: #2c2c2c; color: #FFFFFF; border: none }
+                    QHeaderView::section { background-color: #444444; color: #FFFFFF; padding: 4px; }
+                """)
+        table.setFixedHeight(200)
         for row, (zone, status, temp) in enumerate(sensor_data):
             table.setItem(row, 0, QTableWidgetItem(zone))
             status_item = QTableWidgetItem(status)
