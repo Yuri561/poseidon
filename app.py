@@ -14,6 +14,9 @@ from pages.user_management_page import UserManagementPage
 from db.alerts import network_alerts_db
 from db.alerts import hvac_alerts_db
 from db.alerts import ping_data_db
+from db.cpu_usage import cpu_percent
+from db.cpu_usage import total_memory
+from db.cpu_usage import disk_used
 
 class MainApp(QMainWindow):
     def __init__(self):
@@ -279,13 +282,14 @@ class Dashboard(QWidget):
         frame.layout().addWidget(label)
 
         # Progress Bars for CPU, Memory, and Disk Usage
-        metrics = [("CPU Usage", 75), ("Memory Usage", 60), ("Disk Usage", 40)]
+        metrics = [("CPU Usage", cpu_percent), ("Memory Usage", total_memory), ("Disk Usage", disk_used)]
         for metric, value in metrics:
             metric_label = QLabel(metric)
             metric_label.setFont(QFont("Arial", 14))
             metric_label.setStyleSheet("color: #ecf0f1;")
 
             progress_bar = QProgressBar()
+            progress_bar.setRange(0,500)
             progress_bar.setValue(value)
             progress_bar.setStyleSheet("""
                 QProgressBar { background-color: #2c3e50; border-radius: 5px; text-align: center; }
