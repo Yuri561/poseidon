@@ -35,22 +35,6 @@ network_alerts_db = [
 
 ]
 
-# hvac_sensor_zone_db = [
-#     {"zone_id": 1, "severity": "Warning", "temp": "27°C"},
-#     {"zone_id": 2, "severity": "Critical", "temp": "35°C"},
-#     {"zone_id": 3, "severity": "Normal", "temp": "15°C"},
-#     {"zone_id": 4, "severity": "Normal", "temp": "25°C"},
-#     {"zone_id": 5, "severity": "Normal", "temp": "27°C"},
-#     {"zone_id": 6, "severity": "Warning", "temp": "30°C"},
-# ]
-
-# for item in network_alerts_db:
-#     if item['id'] == 1:
-#         item['acknowledge'] = True
-#
-# for item in network_alerts_db:
-#     print(item)
-
 hvac_alerts_db = [
     {"zone_id": "Comm Room", "severity": "Critical", "temp": "27°C"}, #testing to see if i see the text
     {"zone_id": "Net Room", "severity": "Warning", "temp": "30°C"},
@@ -59,4 +43,21 @@ hvac_alerts_db = [
     {"zone_id": "Lobby Area", "severity": "Good", "temp": "22°C"},
     {"zone_id": "Admin Office", "severity": "Good", "temp": "27°C"},
     {"zone_id": "General Space", "severity": "Good", "temp": "27°C"}
+]
+
+# ping_data = [
+#             ("192.168.1.1", "10ms", "Good"),
+#             ("192.168.1.2", "15ms", "Good"),
+#             ("192.168.1.3", "Timeout", "Critical"),
+#             ("192.168.1.4", "20ms", "Average"),
+#             ("192.168.1.5", "5ms", "Good"),
+#         ]
+
+ping_data_db = [
+    {"IP": "192.168.1.1", "ping": "10ms", "status": "Good"},
+    {"IP": "192.168.1.1", "ping": "10ms", "status": "Average"},
+    {"IP": "192.168.1.1", "ping": "Timeout","status": "Critical"},
+    {"IP": "192.168.1.1", "ping": "10ms", "status": "Average"},
+    {"IP": "192.168.1.1", "ping": "10ms", "status": "Good"},
+    {"IP": "192.168.1.1", "ping": "10ms", "status": "Good"},
 ]

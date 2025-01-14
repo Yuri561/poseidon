@@ -1,18 +1,19 @@
+import random
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QLabel, QWidget, QProgressBar,
     QPushButton, QFrame, QGridLayout, QSlider, QTextEdit, QTableWidget, QTableWidgetItem, QStackedWidget,
-    QScrollBar, QScrollArea
+    QScrollBar, QScrollArea, QGraphicsScene, QGraphicsView, QGraphicsRectItem
 )
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont, QBrush, QColor, QConicalGradient, QPainter
+from PyQt5.QtCore import Qt, QTimer, QPoint
 from pages.settings_page import SettingsPage
 from pages.reports_page import ReportsPage
 from pages.logs_page import LogsPage
 from pages.user_management_page import UserManagementPage
 from db.alerts import network_alerts_db
 from db.alerts import hvac_alerts_db
-
+from db.alerts import ping_data_db
 
 class MainApp(QMainWindow):
     def __init__(self):
@@ -29,18 +30,76 @@ class MainApp(QMainWindow):
 
         # Apply Dark Mode
         self.setStyleSheet("""
-            QMainWindow { background-color: #121212; }
-            QLabel { color: #FFFFFF; }
-            QPushButton { background-color: #2c2c2c; color: #FFFFFF; border-radius: 5px; padding: 10px; }
-            QPushButton:hover { background-color: #444444; }
-            QFrame { background-color: #1e1e1e; border-radius: 10px; }
-            QProgressBar { background-color: #2c2c2c; color: white; border-radius: 5px; text-align: center; }
-            QProgressBar::chunk { background-color: #00bcd4; }
-            QSlider::groove:horizontal { background: #444444; }
-            QSlider::handle:horizontal { background: #00bcd4; border-radius: 5px; }
-            QTextEdit { background-color: #2c2c2c; color: #FFFFFF; border-radius: 5px; padding: 5px; }
-            QLineEdit { background-color: #2c2c2c; color: #FFFFFF; border-radius: 5px; padding: 5px; }
-            QTableWidget { background-color: #2c2c2c; color: #FFFFFF; border-radius: 5px; padding: 5px; }
+            QMainWindow { 
+    background-color: #1b1b1f; /* A dark but softer black with a futuristic vibe */
+}
+
+QLabel { 
+    color: #e0e0e0; /* Light grey for less strain on the eyes */
+}
+
+QPushButton { 
+    background-color: #282a36; /* A dark, slightly bluish tone for buttons */
+    color: #8be9fd; /* Soft cyan for text, matching the futuristic theme */
+    border-radius: 5px; 
+    padding: 10px; 
+    border: 1px solid #6272a4; /* Subtle border for better visibility */
+}
+
+QPushButton:hover { 
+    background-color: #44475a; /* Slightly brighter on hover for interactivity */
+}
+
+QFrame { 
+    background-color: #21222c; /* A neutral dark tone for containers */
+    border-radius: 10px; 
+}
+
+QProgressBar { 
+    background-color: #282a36; /* Matches button color for consistency */
+    color: #f8f8f2; /* Off-white text for clarity */
+    border-radius: 5px; 
+    text-align: center; 
+}
+
+QProgressBar::chunk { 
+    background-color: #50fa7b; /* Futuristic green for progress */
+}
+
+QSlider::groove:horizontal { 
+    background: #44475a; /* Dark groove for better contrast */
+}
+
+QSlider::handle:horizontal { 
+    background: #bd93f9; /* Purple handle for a futuristic pop */
+    border-radius: 5px; 
+}
+
+QTextEdit { 
+    background-color: #282a36; /* Consistent dark background */
+    color: #f8f8f2; /* Off-white text */
+    border-radius: 5px; 
+    padding: 5px; 
+    border: 1px solid #6272a4; /* Subtle border for differentiation */
+}
+
+QLineEdit { 
+    background-color: #282a36; 
+    color: #f8f8f2; 
+    border-radius: 5px; 
+    padding: 5px; 
+    border: 1px solid #6272a4; 
+}
+
+QTableWidget { 
+    background-color: #21222c; 
+    color: #f8f8f2; 
+    border-radius: 5px; 
+    padding: 5px; 
+    gridline-color: #6272a4; /* Grid lines for clarity */
+    selection-background-color: #44475a; /* Highlight selected rows */
+}
+
         """)
 
         # Central Widget
@@ -118,7 +177,7 @@ class MainApp(QMainWindow):
         sidebar.setFixedWidth(250)
         sidebar.setStyleSheet("""
             QFrame {
-                background-color: #00bcd4;  /* Dark gray background */
+                background-color: #3498db;  /* Dark gray background */
                 border-top-left-radius: 10px;
                 border-bottom-left-radius: 10px;
                 padding: 10px;
@@ -191,13 +250,13 @@ class Dashboard(QWidget):
         # Add Widgets
         self.create_system_status()
         self.create_performance_metrics()
-        self.create_network_table()
+        self.create_lighting_dashboard()
         self.create_hvac_performance()
         # self.create_logs_section()
 
     def create_system_status(self):
         """System Status Section"""
-        frame = self.create_frame("#2c3e50")
+        frame = self.create_frame("#34495e")
         label = QLabel("System Status: All Systems Operational")
         label.setFont(QFont("Arial", 16, QFont.Bold))
         label.setStyleSheet("color: #1abc9c;")  # Green text for operational status
@@ -238,44 +297,75 @@ class Dashboard(QWidget):
 
         self.layout().addWidget(frame, 1, 0)
 
-    def create_network_table(self):
-        """Network Traffic Overview"""
-        frame = self.create_frame("#8e44ad")
-        label = QLabel("Net Traffic Overview")
+    def create_lighting_dashboard(self):
+        """Lighting Control Dashboard"""
+        frame = self.create_frame("#34495e")
+
+        # Add the title
+        label = QLabel("Lighting Control Dashboard")
         label.setFont(QFont("Arial", 16, QFont.Bold))
         label.setStyleSheet("color: #FFFFFF;")
         frame.layout().addWidget(label)
 
-        # Network Traffic Table
-        table = QTableWidget(5, 3)
-        table.setHorizontalHeaderLabels(["IP", "Stat", "Lat (ms)"])
-        table.horizontalHeader().setVisible(True)
-        table.horizontalHeader().setFixedHeight(65)
-        table.verticalHeader().setVisible(False)
-        table.setStyleSheet("""
-                   QTableWidget {color: #FFFFFF; }
-                   QHeaderView::section { background-color: #444444; color: #FFFFFF; padding: 4px; }
-               """)
-        data = [
-            ("192.168.1.1", "Online", "10ms"),
-            ("192.168.1.2", "Online", "15ms"),
-            ("192.168.1.3", "Offline", "N/A"),
-            ("192.168.1.4", "Online", "20ms"),
-            ("192.168.1.5", "Online", "5ms"),
-        ]
-        for row, (ip, status, latency) in enumerate(data):
-            table.setItem(row, 0, QTableWidgetItem(ip))
-            status_item = QTableWidgetItem(status)
-            if status == "Offline":
-                status_item.setBackground(Qt.red)
-            else:
-                status_item.setBackground(Qt.green)
-            table.setItem(row, 1, status_item)
-            table.setItem(row, 2, QTableWidgetItem(latency))
+        # Grid layout for zones
+        grid_layout = QGridLayout()
+        zones = ["Living Room", "Kitchen", "Bedroom 1", "Bedroom 2", "Hallway"]
+        lighting_data = {zone: {"status": "OFF", "brightness": 50} for zone in zones}
 
-        frame.layout().addWidget(table)
+        for row, zone in enumerate(zones):
+            # Zone name
+            zone_label = QLabel(zone)
+            zone_label.setStyleSheet("color: #FFFFFF; font-size: 14px;")
+            grid_layout.addWidget(zone_label, row, 0)
+
+            # Toggle button
+            toggle_button = QPushButton("OFF")
+            toggle_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #e74c3c; 
+                    color: #FFFFFF; 
+                    border-radius: 5px; 
+                    padding: 5px;
+                }
+                QPushButton:checked {
+                    background-color: #2ecc71;
+                }
+            """)
+            toggle_button.setCheckable(True)
+            grid_layout.addWidget(toggle_button, row, 1)
+
+            # Brightness slider
+            brightness_slider = QSlider(Qt.Horizontal)
+            brightness_slider.setValue(lighting_data[zone]["brightness"])
+            brightness_slider.setStyleSheet("""
+                QSlider::groove:horizontal { background: #444444; height: 6px; }
+                QSlider::handle:horizontal { background: #00bcd4; width: 12px; margin: -5px 0; }
+            """)
+            grid_layout.addWidget(brightness_slider, row, 2)
+
+            # Update toggle button and brightness on interaction
+            def toggle_light(status_label, toggle_btn, zone_name):
+                def inner():
+                    if toggle_btn.isChecked():
+                        toggle_btn.setText("ON")
+                        lighting_data[zone_name]["status"] = "ON"
+                    else:
+                        toggle_btn.setText("OFF")
+                        lighting_data[zone_name]["status"] = "OFF"
+
+                return inner
+
+            def adjust_brightness(bright_slider, zone_name):
+                def inner(value):
+                    lighting_data[zone_name]["brightness"] = value
+
+                return inner
+
+            toggle_button.clicked.connect(toggle_light(zone_label, toggle_button, zone))
+            brightness_slider.valueChanged.connect(adjust_brightness(brightness_slider, zone))
+
+        frame.layout().addLayout(grid_layout)
         self.layout().addWidget(frame, 1, 1)
-
 
     def create_hvac_performance(self):
         """HVAC Performance with Scrollable Progress Bars"""
@@ -286,7 +376,7 @@ class Dashboard(QWidget):
 
         # Frame inside the scroll area
         frame = QFrame()
-        frame.setStyleSheet("background-color: #16a085; border-radius: 2px;")
+        frame.setStyleSheet("background-color: #34495e; border-radius: 2px;")
         frame.setLayout(QVBoxLayout())
         frame.layout().setContentsMargins(10, 10, 10, 10)
         frame.layout().setSpacing(15)
@@ -358,35 +448,29 @@ class AlertManagerDashboard(QWidget):
         # Add Widgets
         self.create_ping_monitor()
         self.create_hvac_sensor_status()
-        self.create_alert_controls()
+        self.create_gauge_widget()
         self.create_network_alerts()
         self.create_alert_summary()
+
 
     def create_ping_monitor(self):
         """Ping Network Monitor Section with Scrollable Table"""
         # Create the main frame for the Ping Monitor
         frame = QFrame()
-        frame.setStyleSheet("background-color: #1e88e5; border-radius: 10px;")
+        frame.setStyleSheet("background-color: #34495e; border-radius: 10px;")
         frame.setLayout(QVBoxLayout())
         frame.layout().setContentsMargins(10, 10, 10, 10)
         frame.layout().setSpacing(10)
 
         # Add a label as the section title
-        label = QLabel("🌐 Ping Network Monitor")
+        label = QLabel("🌐 Network Monitor")
         label.setFont(QFont("Arial", 16))
         label.setStyleSheet("color: #FFFFFF;")
         frame.layout().addWidget(label)
 
-        # Create the QTableWidget and populate it with data
-        ping_data = [
-            ("192.168.1.1", "10ms", "Good"),
-            ("192.168.1.2", "15ms", "Good"),
-            ("192.168.1.3", "Timeout", "Critical"),
-            ("192.168.1.4", "20ms", "Average"),
-            ("192.168.1.5", "5ms", "Good"),
-        ]
+        # QTableWidget and data
 
-        table = QTableWidget(len(ping_data), 3)
+        table = QTableWidget(len(ping_data_db), 3)
         table.setHorizontalHeaderLabels(["IP Address", "Ping", "Status"])
         table.horizontalHeader().setVisible(True)  # Ensure headers are visible
         table.verticalHeader().setVisible(False)  # Optional: Hide row headers
@@ -394,7 +478,10 @@ class AlertManagerDashboard(QWidget):
             QTableWidget { background-color: #2c2c2c; color: #FFFFFF; }
             QHeaderView::section { background-color: #444444; color: #FFFFFF; padding: 4px; }
         """)
-        for row, (ip, ping, status) in enumerate(ping_data):
+        for row, data in enumerate(ping_data_db):
+            ip = data['IP']
+            ping = data['ping']
+            status = data['status']
             table.setItem(row, 0, QTableWidgetItem(ip))
             table.setItem(row, 1, QTableWidgetItem(ping))
             status_item = QTableWidgetItem(status)
@@ -408,7 +495,7 @@ class AlertManagerDashboard(QWidget):
 
         frame.layout().addWidget(table)
 
-        # Create a scroll area and add the frame to it
+        #  scroll area and frame
         scroll_area = QScrollArea()
         scroll_area.setWidget(frame)
         scroll_area.setWidgetResizable(True)
@@ -423,7 +510,7 @@ class AlertManagerDashboard(QWidget):
 
     def create_hvac_sensor_status(self):
         """HVAC Sensor Status Section"""
-        frame = self.create_frame("#f4511e")
+        frame = self.create_frame("#34495e")
         label = QLabel("🔥 HVAC Sensor Status")
         label.setFont(QFont("Arial", 16))
         label.setStyleSheet("color: #FFFFFF;")
@@ -459,72 +546,146 @@ class AlertManagerDashboard(QWidget):
         frame.layout().addWidget(table)
         self.layout().addWidget(frame, 0, 1)
 
-    def create_alert_controls(self):
-        """Alert Management Controls"""
-        frame = self.create_frame("#43a047")
-        label = QLabel("⚠️ Manage Alerts")
+    def create_gauge_widget(self):
+        """Improved Gauge Widget for Key Metric Visualization"""
+        frame = self.create_frame("#34495e")
+
+        # Title Label
+        label = QLabel("📊 System Load")
         label.setFont(QFont("Arial", 16))
         label.setStyleSheet("color: #FFFFFF;")
         frame.layout().addWidget(label)
 
-        # Alert actions with sliders and toggles
-        reset_button = QPushButton("Reset Alarms")
-        reset_button.setFont(QFont("Arial", 14))
-        reset_button.setCursor(Qt.PointingHandCursor)
-        reset_button.setToolTip('Reset')
-        reset_button.setStyleSheet("background-color: #e53935; color: #FFFFFF; border-radius: 5px; padding: 10px;")
+        # Enhanced Gauge Widget
+        class ImprovedGaugeWidget(QWidget):
+            def __init__(self, parent=None, title="Metric", unit="%", min_val=0, max_val=100):
+                super().__init__(parent)
+                self.title = title
+                self.unit = unit
+                self.value = 50  # Default starting value
+                self.min_val = min_val
+                self.max_val = max_val
 
-        acknowledge_button = QPushButton("Acknowledge Alerts")
-        acknowledge_button.setFont(QFont("Arial", 14))
-        acknowledge_button.setCursor(Qt.PointingHandCursor)
-        acknowledge_button.setToolTip("Acknowledge")
-        acknowledge_button.setStyleSheet("""background-color: #8e24aa; color: #FFFFFF; border-radius: 5px; padding: 10px;
-        """ )
+                # Timer for Simulated Updates
+                self.timer = QTimer(self)
+                self.timer.timeout.connect(self.update_value)
+                self.timer.start(1000)
 
-        slider_label = QLabel("Alert Sensitivity:")
-        slider_label.setFont(QFont("Arial", 12))
-        slider_label.setStyleSheet("color: #FFFFFF;")
+            def update_value(self):
+                """Simulates dynamic gauge updates."""
+                import random
+                self.value = random.randint(self.min_val, self.max_val)
+                self.update()
 
-        sensitivity_slider = QSlider(Qt.Horizontal)
-        sensitivity_slider.setMinimum(0)
-        sensitivity_slider.setMaximum(100)
-        sensitivity_slider.setValue(50)
-        sensitivity_slider.setStyleSheet("""
-            QSlider::groove:horizontal { background: #444444; }
-            QSlider::handle:horizontal { background: #00bcd4; border-radius: 5px; padding: 8px; }
-        """)
+            def paintEvent(self, event):
+                """Custom drawing for the gauge."""
+                painter = QPainter(self)
+                painter.setRenderHint(QPainter.Antialiasing)
 
-        frame.layout().addWidget(reset_button)
-        frame.layout().addWidget(acknowledge_button)
-        frame.layout().addWidget(slider_label)
-        frame.layout().addWidget(sensitivity_slider)
+                rect = self.rect()
+                size = min(rect.width(), rect.height())
+                center = rect.center()
+                radius = size // 2 - 10
 
+                # Background Circle
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(QColor("#2c3e50"))
+                painter.drawEllipse(center, radius, radius)
+
+                # Gradient Arc
+                start_angle = 135 * 16  # Start angle (135°)
+                span_angle = int((self.value / self.max_val) * 270) * 16  # Map value to angle
+                gradient = QConicalGradient(center, -90)
+                gradient.setColorAt(0.0, QColor("#27ae60"))  # Green for good performance
+                gradient.setColorAt(1.0, QColor("#e74c3c"))  # Red for bad performance
+                painter.setBrush(QBrush(gradient))
+                painter.drawPie(
+                    rect.center().x() - radius, rect.center().y() - radius,
+                    radius * 2, radius * 2, start_angle, span_angle
+                )
+
+                # Inner Circle
+                inner_radius = radius - 20
+                painter.setBrush(QColor("#34495e"))  # Inner circle background
+                painter.drawEllipse(center, inner_radius, inner_radius)
+
+                # Draw Text (Value + Unit)
+                painter.setPen(Qt.white)
+                painter.setFont(QFont("Arial", 12, QFont.Bold))
+                painter.drawText(
+                    self.rect(),
+                    Qt.AlignCenter,
+                    f"{self.value} {self.unit}\n{self.title}"
+                )
+
+        # Add Gauge to Frame
+        gauge = ImprovedGaugeWidget(title="System Load", unit="%", min_val=0, max_val=100)
+        gauge.setFixedSize(220, 220)
+        frame.layout().addWidget(gauge)
+
+
+        # Add Frame to Main Layout
         self.layout().addWidget(frame, 1, 0)
 
+    #db made for alert
     def create_network_alerts(self):
         """Display Ongoing Network Alerts"""
-        frame = self.create_frame("#ff9800")
+        frame = self.create_frame("#34495e")
+
+        # Title Label
         label = QLabel("🚨 Network Alerts")
         label.setFont(QFont("Arial", 16))
         label.setStyleSheet("color: #FFFFFF;")
         frame.layout().addWidget(label)
 
-        # neetwork alerts
+        # Network Alerts Text Box
         alerts = QTextEdit()
         alerts.clear()
         for item in network_alerts_db:
             alerts.append(
-                f"🔴Alert {item['id']} | {item['description']} | Acknowledge: | {item['acknowledge']}\n"
+                f"🔴 Alert {item['id']} | {item['description']} | Acknowledge: | {item['acknowledge']}\n"
             )
         alerts.setReadOnly(True)
-        alerts.setStyleSheet("background-color: #2c2c2c; color: #FFFFFF; border-radius: 5px; padding: 5px;")
+        alerts.setStyleSheet(
+            "background-color: #2c2c2c; color: #FFFFFF; border-radius: 5px; padding: 5px;"
+        )
         frame.layout().addWidget(alerts)
 
+        # Buttons (Reset and Acknowledge)
+        reset_button = QPushButton("Reset")
+        reset_button.setFont(QFont("Arial", 12))  # Smaller font
+        reset_button.setFixedSize(120, 40)  # Smaller size
+        reset_button.setCursor(Qt.PointingHandCursor)
+        reset_button.setToolTip("Reset")
+        reset_button.setStyleSheet(
+            "background-color: #e53935; color: #FFFFFF; border-radius: 5px; padding: 5px;"
+        )
+
+        acknowledge_button = QPushButton("Acknowledge")
+        acknowledge_button.setFont(QFont("Arial", 12))  # Smaller font
+        acknowledge_button.setFixedSize(140, 40)  # Smaller size
+        acknowledge_button.setCursor(Qt.PointingHandCursor)
+        acknowledge_button.setToolTip("Acknowledge")
+        acknowledge_button.setStyleSheet(
+            "background-color: #8e24aa; color: #FFFFFF; border-radius: 5px; padding: 5px;"
+        )
+
+        # Horizontal Layout for Buttons
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(reset_button)
+        button_layout.addWidget(acknowledge_button)
+        button_layout.setAlignment(Qt.AlignCenter)  # Center-align the buttons
+        button_layout.setSpacing(20)  # Add some space between buttons
+
+        # Add Button Layout Below Alerts
+        frame.layout().addLayout(button_layout)
+
+        # Add Frame to Main Layout
         self.layout().addWidget(frame, 1, 1)
 
     def create_alert_summary(self):
         """Summary of Alerts and Status"""
-        frame = self.create_frame("#3949ab")
+        frame = self.create_frame("#34495e")
         label = QLabel("📊 Summary")
         label.setFont(QFont("Arial", 16))
         label.setStyleSheet("color: #FFFFFF;")
