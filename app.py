@@ -1,9 +1,8 @@
-import random
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QLabel, QWidget, QProgressBar,
     QPushButton, QFrame, QGridLayout, QSlider, QTextEdit, QTableWidget, QTableWidgetItem, QStackedWidget,
-    QScrollBar, QScrollArea, QGraphicsScene, QGraphicsView, QGraphicsRectItem
+    QListWidget, QScrollArea, QGraphicsScene, QGraphicsView, QGraphicsRectItem, QListWidget
 )
 from PyQt5.QtGui import QFont, QBrush, QColor, QConicalGradient, QPainter
 from PyQt5.QtCore import Qt, QTimer, QPoint
@@ -17,6 +16,8 @@ from db.alerts import ping_data_db
 from db.cpu_usage import cpu_percent
 from db.cpu_usage import total_memory
 from db.cpu_usage import disk_used
+from db.alerts import hvac_performance_db
+from utils.alerts_removal import alert_removal
 
 class MainApp(QMainWindow):
     def __init__(self):
@@ -248,7 +249,7 @@ class Dashboard(QWidget):
         super().__init__()
         self.setLayout(QGridLayout())
         self.layout().setContentsMargins(15, 15, 15, 15)
-        self.layout().setSpacing(20)  # Improved spacing for readability
+        self.layout().setSpacing(20)
 
         # Add Widgets
         self.create_system_status()
@@ -336,6 +337,7 @@ class Dashboard(QWidget):
                 }
             """)
             toggle_button.setCheckable(True)
+            toggle_button.setCursor(Qt.PointingHandCursor)
             grid_layout.addWidget(toggle_button, row, 1)
 
             # Brightness slider
@@ -375,7 +377,7 @@ class Dashboard(QWidget):
         """HVAC Performance with Scrollable Progress Bars"""
         # Scroll Area Container
         scroll_area = QScrollArea()
-        scroll_area.setStyleSheet("background-color: black;")
+        scroll_area.setStyleSheet("background-color: gray;")
         scroll_area.setWidgetResizable(True)
 
         # Frame inside the scroll area
@@ -391,39 +393,33 @@ class Dashboard(QWidget):
         label.setStyleSheet("color: #FFFFFF;")
         frame.layout().addWidget(label)
 
-        # Example data for HVAC performance
-        hvac_performance = [
-            ("RTU-1", 90),
-            ("RTU-2", 85),
-            ("FCU-1", 78),
-            ("FCU-2", 92),
-            ("Tower", 88),
-            ("RTU-3", 95),
-            ("RTU-4", 65),
-            ("FCU-3", 80),
-            ("FCU-4", 75),
-            ("Cooling Tower", 85),
-        ]
-
         # Adding progress bars for each HVAC unit
-        for zone, performance in hvac_performance:
+        for data in hvac_performance_db:
+            zone = data['equipment_name']
+            performance = data['performance']
             zone_label = QLabel(f"{zone}: {performance}%")
             zone_label.setFont(QFont("Arial", 14))
             zone_label.setStyleSheet("color: #FFFFFF;")
             progress_bar = QProgressBar()
             progress_bar.setValue(performance)
-            progress_bar.setStyleSheet("""
-                QProgressBar {
-                    background-color: #34495e;
-                    color: #ecf0f1;
-                    border-radius: 5px;
-                    text-align: center;
-                }
-                QProgressBar::chunk {
-                    background-color: #e74c3c;
-                    border-radius: 5px;
-                }
-            """)
+            if performance > 90:
+                color = "green"
+            elif performance > 60:
+                color = "yellow"
+            else:
+                color = "red"
+
+            progress_bar.setStyleSheet(f"""
+                 QProgressBar {{
+                     color: #ecf0f1;
+                     border-radius: 5px;
+                     text-align: center;
+                 }}
+                 QProgressBar::chunk {{
+                     background-color: {color};
+                     border-radius: 5px;
+                 }}
+             """)
             frame.layout().addWidget(zone_label)
             frame.layout().addWidget(progress_bar)
 
@@ -515,17 +511,18 @@ class AlertManagerDashboard(QWidget):
     def create_hvac_sensor_status(self):
         """HVAC Sensor Status Section"""
         frame = self.create_frame("#34495e")
+        frame.setLayout(QVBoxLayout())
         label = QLabel("🔥 HVAC Sensor Status")
         label.setFont(QFont("Arial", 16))
         label.setStyleSheet("color: #FFFFFF;")
         frame.layout().addWidget(label)
 
-        # HVAC sensors example
+        # HVAC sensors
         table = QTableWidget(len(hvac_alerts_db), 3)
         table.setHorizontalHeaderLabels(["Zone", "Status", "Temperature"])
         table.horizontalHeader().setFixedHeight(60)
         table.horizontalHeader().setVisible(True)
-        table.verticalHeader().setVisible(False)  # Optional: Hide row headers
+        table.verticalHeader().setVisible(False)
         table.setStyleSheet("""
                     QTableWidget { background-color: #2c2c2c; color: #FFFFFF; border: none }
                     QHeaderView::section { background-color: #444444; color: #FFFFFF; padding: 4px; }
@@ -534,7 +531,7 @@ class AlertManagerDashboard(QWidget):
         for row, data in enumerate(hvac_alerts_db):
             zone = data['zone_id']
             status = data['severity']
-            temp = data['temp']
+            temp = str(data['temp'])
 
             table.setItem(row, 0, QTableWidgetItem(zone))
             status_item = QTableWidgetItem(status)
@@ -545,9 +542,10 @@ class AlertManagerDashboard(QWidget):
             else:
                 status_item.setBackground(Qt.green)
             table.setItem(row, 1, status_item)
-            table.setItem(row, 2, QTableWidgetItem(temp))
+            table.setItem(row, 2, QTableWidgetItem(temp + "°F"))
 
         frame.layout().addWidget(table)
+
         self.layout().addWidget(frame, 0, 1)
 
     def create_gauge_widget(self):
@@ -566,7 +564,7 @@ class AlertManagerDashboard(QWidget):
                 super().__init__(parent)
                 self.title = title
                 self.unit = unit
-                self.value = 50  # Default starting value
+                self.value = 50
                 self.min_val = min_val
                 self.max_val = max_val
 
@@ -643,13 +641,11 @@ class AlertManagerDashboard(QWidget):
         frame.layout().addWidget(label)
 
         # Network Alerts Text Box
-        alerts = QTextEdit()
-        alerts.clear()
+        alerts = QListWidget()
         for item in network_alerts_db:
-            alerts.append(
-                f"🔴 Alert {item['id']} | {item['description']} | Acknowledge: | {item['acknowledge']}\n"
+            alerts.addItem(
+                f"🔴 Alert {item['id']} | {item['description']} | Acknowledge: | {item['acknowledge']}"
             )
-        alerts.setReadOnly(True)
         alerts.setStyleSheet(
             "background-color: #2c2c2c; color: #FFFFFF; border-radius: 5px; padding: 5px;"
         )
@@ -673,6 +669,9 @@ class AlertManagerDashboard(QWidget):
         acknowledge_button.setStyleSheet(
             "background-color: #8e24aa; color: #FFFFFF; border-radius: 5px; padding: 5px;"
         )
+        acknowledge_button.clicked.connect(lambda: self.alert_removal(alerts))
+        self.layout().update()
+
 
         # Horizontal Layout for Buttons
         button_layout = QHBoxLayout()
